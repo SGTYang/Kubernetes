@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  namespace: elastic
+  name: nginx-filebeat-sidecar
+  labels:
+    app: nginx-filebeat-sidecar
+spec:
+  replicas: 1
+  selector:
+    matchLabels: nginx-filebeat-sidecar
+      app:
+  template:
+    metadata:
+      name: nginx-filebeat-sidecar
+      labels:
+        app: nginx-filebeat-sidecar
+    spce:
+      containers:
+        - name: nginx
+          image: nginx
+          ports: 
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-logs
+              mountPath: var/log/nginx/
