@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch-statefulset
+  namespace: elastic
+  
+spec:
+  serviceName: elasticsearch-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+        
+    spec:
+      containers:
+      - name: elasticsearch-container
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.14.1
+        ports:
+        - containerPort: 9200
+          name: http-port
+          protocol: TCP
+        - containerPort: 9300
+          name: transport-port
+          protocol: TCP
+        volumeMounts:
+        - name: elasticsearch-volume
+          mountPath: /usr/share/elasticsearch/data
+        env:
+          - name: discovery.type
+            value: single-node
+            
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: elasticsearch-volume
+          mountPath: /usr/share/elasticsearch/data
+          
+  # 엘라스틱서치에서는 bootstrap 과정에서 mmap 수가 262,144 이하이면 실행되지 않도록 되어 있습니다. 
+  # 이를 해결하기 위해서는 vm.max_map_count 값을 엘라스틱서치가 동작할 수 있는 최소 값인 262,144로 수정해야 합니다.
+      - name: increase-vm-max-map 
+        image: busybox
+        command: ["sysctl", "-w", "vm.max_map_count=262144"]
+        securityContext:
+          privileged: true
+        
+      - name: increase-fd-ulimit
+        image: busybox
+        command: ["sh", "-c", "ulimit -n 65536"]
+        securityContext:
+          privileged: true
+          
+    volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app: elasticsearch
+      spec:
+        accessModes: ["ReadWriteOnce"]
+      
+      
