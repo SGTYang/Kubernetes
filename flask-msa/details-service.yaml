@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: details-svc
+  labels:
+    app: details
+spec:
+  ports:
+  - port: 80
+    name: http
+  selector:
+    app: details
