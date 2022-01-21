@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontpage-svc
+  labels:
+    app: frontpage
+spec:
+  ports:
+  - port: 80
+    name: http
+  selector:
+    app: frontpage
