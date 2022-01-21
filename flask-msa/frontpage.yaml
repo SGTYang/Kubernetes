@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontpage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontpage
+  template:
+    metadata:
+      labels:
+        app: frontpage
+    spec:
+      containers:
+      - name: frontpage
+        image: gofiddlersgreen/flask-msa-front
+        ports:
+        - containerPort: 80
