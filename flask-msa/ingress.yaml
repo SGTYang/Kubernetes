@@ -8,13 +8,6 @@ spec:
   rules:
   - http:
       paths:
-      - path: /details
-        pathType: Prefix
-        backend:
-          service:
-            name: details-svc
-            port:
-              number: 80
       - path: /
         pathType: Prefix
         backend:
