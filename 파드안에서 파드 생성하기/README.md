@@ -1,4 +1,3 @@
-# 동일한 api로 pod이 생성되어서 추가적인 API 혹은 서버 없이 자원을 컨트롤
 
 # 서비스 어카운트 생성
 kubectl create serviceaccount pod-pod
