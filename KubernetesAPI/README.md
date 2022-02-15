@@ -1,5 +1,5 @@
 # Kubernetes API
-
+REST 호출을 사용하여 API에 직접 접근할 수도 있다
 kubectl CLI툴을 사용하지 않고 직접 쿠버네티스 API를 호출
 
 api주소 먼저 확인
