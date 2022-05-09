@@ -22,6 +22,7 @@ spec:
         - containerPort: 80
 EOF
 
+
 # 생성한 pod에서 다른 pod 생성
 kubectl exec -ti boot -c nginx -- bash -c '''
 curl -s \
