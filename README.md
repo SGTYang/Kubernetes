@@ -373,4 +373,170 @@ spec:
 
 When the pods are created or updated with the new tolerations, they either not scheduled on nodes or evicted from the existing nodes depending on the effect set.
 
-## Taint - NoExecute
+```bash
+kubectl get pods -o wide
+```
+
+## To remove taint
+
+```bash
+kbuectl taint node nodename key=value:tainteffect-
+```
+
+## Node Selectors
+
+---
+
+When we want to set limitation on the pods so that they only run on particular nodes. There are two way to do this. The first is using node selectors.
+
+## Node Selectors
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+	containers:
+	- name: data-processor
+		image: data-processor
+	
+	nodeSelector:
+		size: Large
+```
+
+## Label Nodes
+
+```bash
+kubectl label nodes nodename key=value
+```
+
+What if our requirement is much more complex? Then you use node affinity and anti affinity features.
+
+# Node Affinity
+
+---
+
+The primary purpose of node affinity feature is to ensure that pods are hosted on particular nodes.
+
+```yaml
+apiVersion: v1
+kind: Pod
+
+metadata:
+	name: myapp-pod
+spec:
+	containers:
+	- name: data-processor
+		image: data-processor
+	
+	affinity:
+		nodeAffinity:
+			requiredDuringSchedulingIgnoredDuringExecution:
+				nodeSelectorTerms:
+				- matchExpressions:
+					-key: size
+					 operator: In
+					 values:
+					 - Large
+```
+
+The operator ensures that the pod will be placed on a node whose label size has any value in the list of values specified.
+
+If you think your pod could be placed on a large or a medium node you could simply add the value to the list of values.
+
+```yaml
+apiVersion: v1
+kind: Pod
+
+metadata:
+	name: myapp-pod
+spec:
+	containers:
+	- name: data-processor
+		image: data-processor
+	
+	affinity:
+		nodeAffinity:
+			requiredDuringSchedulingIgnoredDuringExecution:
+				nodeSelectorTerms:
+				- matchExpressions:
+					- key: size
+					 operator: In
+					 values:
+					 - Large
+					 - Medium
+					 - Small
+```
+
+```yaml
+apiVersion: v1
+kind: Pod
+
+metadata:
+	name: myapp-pod
+spec:
+	containers:
+	- name: data-processor
+		image: data-processor
+	
+	affinity:
+		nodeAffinity:
+			requiredDuringSchedulingIgnoredDuringExecution:
+				nodeSelectorTerms:
+				- matchExpressions:
+					- key: size
+					 operator: Not In
+					 values:
+					 - Large
+```
+
+If you set operator Not In, node affinity will match the node with values are not matched. 
+
+```yaml
+apiVersion: v1
+kind: Pod
+
+metadata:
+	name: myapp-pod
+spec:
+	containers:
+	- name: data-processor
+		image: data-processor
+	
+	affinity:
+		nodeAffinity:
+			requiredDuringSchedulingIgnoredDuringExecution:
+				nodeSelectorTerms:
+				- matchExpressions:
+					-key: size
+					 operator: Exists 
+```
+
+The exists operator will simply check if the label exists on the node and you don’t need values for that as it does not compare the values.
+
+There are number of operators.
+
+## Node Affinity Types
+
+Type of node affinity defines the behaviour of the scheduler with respect to node affinity and the stages in the lifecycle of the pod.
+
+There are currently two types of node affinity available.
+
+```yaml
+requiredDuringSchedulingIgnoredDuringExecution
+
+preferredDuringSchedulingIgnoredDuringExecution=
+```
+
+## Label nodes
+
+```bash
+kubectl label node nodename key=value
+```
+
+## Get certain fields items from describe command
+
+```bash
+kubectl describe node nodename | grep Taints
+```
