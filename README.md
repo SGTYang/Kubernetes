@@ -1,5 +1,3 @@
-# Kubernetes Study
-
 # ETCD
 
 ---
