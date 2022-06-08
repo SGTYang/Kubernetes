@@ -870,15 +870,11 @@ kubectl rollout history deployment-name
 
 Rolling update is the default deployment strategy
 
- 
-
 ### To undo update
 
 ```bash
 kubectl rollout undo deployment/deployment-name
 ```
-
- 
 
 # Container
 
@@ -1277,3 +1273,191 @@ If you were to mount the secret as a volume in the pod. Each attribute in the se
 </aside>
 
 [https://kubernetes.io/docs/concepts/configuration/secret/#risks](https://kubernetes.io/docs/concepts/configuration/secret/#risks)
+
+# Multi Container Pod
+
+---
+
+The idea of decoupling a large monolithic application into sub-components known as MSA enables us to develop and deploy a set of independent small and reusable code.
+
+This architecture can then help us scale up down  as well as modify each service as required as opposed to modifying the entire application.
+
+However at times you may need two services to work together such as a web server and a logging service. That is why you have multi-container pods that share the same lifecycle which means they are created together and destroyed together. They share the same network space which means they can refer to each other as local host and they have access to the same storage volumes. 
+
+This way you don’t have to establish volume sharing or services between the pods to enable communication between them.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+	name: simple-webapp
+	labels:
+		name: simple-webapp
+spec:
+	containers:
+	- name: simple-webapp
+		image: simple-webapp
+		ports:
+			- containerPort: 8080
+	- name: log-agent
+		image: log-agent
+```
+
+The container section under the spec section in a pod definition file is an array and the reason it is an array is to allow multiple containers in a single pod. 
+
+<aside>
+⚠️ [Kibana Bashboard creating an index pattern](https://bit.ly/2EXYdHf)
+
+</aside>
+
+# Multi-container Pods Design Patterns
+
+---
+
+## Sidecar
+
+## Adapter
+
+## Ambassador
+
+# InitContainers
+
+---
+
+In a multi-container pod, each container is expected to run a process that stays alive as long as the Pod’s lifecycle. But at times you may want to run a process that runs to completion in a container. For example a process that pulls a code or binary from a repository that will be used by the main web application. **That is a process that waits for an external service or database to be up before the actual application starts**. That’s where initContainers comes int handy. 
+
+An initContainer is configured in a pod like all other containers, except that it is specified inside a initContainers section.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp-container
+    image: busybox:1.28
+    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox
+    command: ['sh', '-c', 'git clone <some-repository-that-will-be-used-by-application> ; done;']
+```
+
+When a Pod is first created the **initContainer is run**, and the process in the **initContainer must run to a completion before the real container hosting the application starts**. initContainer is run one at a time in **sequential order.**
+
+If any of the initContainer fail to complete, K8S restarts the pod repeatedly until the initContainer succeeds.
+
+# Self Healing Applications
+
+---
+
+K8S supports self-healing applications through ReplicaSets and Replication Controllers. The replication controller helps in ensuring that a pod is re-created automatically when the application within the pod crashes. It helps in ensuring enough replicas of the application are running at all times.
+
+K8S provides additional support to check the health of applications running within pods and take necessary actions through Liveness and Readiness Probes.
+
+# Cluster Maintenance
+
+---
+
+If you’re sure the node will come back online within five minutes, you can make a quick upgrade and reboot. However you do not sure if a node is going to be back online in five minutes, you can purposefully drain the node of all the workloads so that the workloads are moved to other nodes.
+
+```bash
+kubectl drain node-name
+```
+
+When you drain the node the pods are gracefully terminated from the node that they’re on and recreated on another. The node is also cordoned or marked as unschedulable meaning no pods can be scheduled on this node until you specifically remove the restriction. You need to uncordon it, so that pods can be scheduled on it again.
+
+```bash
+kubectl uncordon node-name
+```
+
+The pods that were moved to the other nodes, don’t automatically fall back. If any of those pods were deleted or if new pods were created in the cluster, then they will be created on this node.
+
+Cordon simply marks a node unschedulable. Unlike drain, it does not terminate or move the pods on an existing node. It simply makes sure that new pods are not scheduled on that node.
+
+```bash
+kubectl cordon node-name
+```
+
+# Kubernetes Releases
+
+---
+
+K8S release versions consists of 3 parts. The first is the major version, followed by the minor version and then the patch version.
+
+```bash
+**v 1   . 11  .  3
+ major minor patches**
+```
+
+While minor versions are released every few months with new features and functionalities. Patches are released more often with critical bug fixes. K8S follows a standard software release versioning procedure.
+
+# Cluster Upgrade Process
+
+---
+
+The components can be at different released versions since the Kube API server is the primary component in the control plane, and that is the component that all other components talk to. **None of the other components should ever be at a version higher than the Kube API server**. 
+
+At any time K8S supports only up to the recent three minor versions.
+
+The recommended approach is to upgrade one minor version at a time.
+
+The upgrade process depends on how your cluster is set up. If you’re deployed your cluster from scratch, then you manually upgrade the different components of the cluster yourself.
+
+Upgrading a cluster involves two major steps. First, you upgrade your master nodes and then upgrade to worker nodes. While the master is being upgraded, the control plane components such as the API server, scheduler and controller managers go down briefly, the master going down does not mean your worker nodes and applications on the cluster are impacted, all workloads hosted on the worker node continue to serve users as normal. Since he master is down, all management functions are down. But as long as the nodes and the pods are up, your applications should be up and users will not be impacted.
+
+There are different strategies available to upgrade the worker nodes. One is to upgrade all of them at once. But then your pods are down and users are no longer able to access the applications. The second strategy is to upgrade one node at a time.  A third strategy would be to add new nodes to the cluster nodes with newer version. This is especially convenient if you’re on a cloud environment where you can easily provisioned new nodes and decommissioned old ones. Nodes with the newer version can be added to the cluster and remove old one.
+
+### kubeadm - upgrade
+
+```bash
+kubeadm upgrade plan
+```
+
+After you upgrade the control plane components, you must manually upgrade the kubelet versions on each node. Kubeadm does not install or upgrade kubelet.
+
+First, upgrade kubeadm itself
+
+```bash
+apt-get upgrade -y kubeadm=1.12.0-00
+```
+
+the upgrade the cluster using the command from the upgrade plan output
+
+```bash
+kubeadm upgrade apply v1.12.0
+```
+
+If you run the get nodes command, you will still see the master node is at 1.11. This is because in the output of this command, it is showing the version of kubelet on each of these nodes registered with the API server and not the version of the API server itself.
+
+So the next step is to upgrade the kubelet. Depending on your setup, you may or may not have kubelet running on your master node. 
+
+```bash
+apt-get upgrade -y kubelet=1.12.0-00
+```
+
+```bash
+systemctl restart kubelet
+```
+
+Running the get nodes command, now shows that the master has been upgraded to 1.12 
+
+To upgrade worker nodes, we need to move workload to other nodes.  The drain command, let’s you safely terminate all the pods from the node and reschedules them on the other nodes. Then upgrade the kubeadm and kubelet packages on the worker nodes, as we did on the master node. 
+
+```bash
+kubectl drain node-1
+apt-get upgrade -y kubeadm=1.12.0-00
+apt-get upgrade -y kubelet=1.12.0-00
+kubeadm upgrade node config --kubelet-version v1.12.0
+```
+
+Update the node configuration for the new kubelet version. Then restart kubelet service.
+
+```bash
+systemctl restart kubelet
+```
+
+We need to unmark it by running the uncordon command.
