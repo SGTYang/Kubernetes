@@ -1,5 +1,3 @@
-# Kubernetes Study
-
 # ETCD
 
 ---
@@ -1461,3 +1459,47 @@ systemctl restart kubelet
 ```
 
 We need to unmark it by running the uncordon command.
+
+```bash
+kubectl uncordon node-1
+```
+
+- 컨트롤플레인 업그레이드-
+1. 목록에서 최신 버전 찾기
+
+apt update
+
+apt-cache madison kubeadm
+
+1. kubeadm 업그레이드
+
+apt-mark unhold kubeadm && apt-get update && apt-get install -y kubeadm=1.24.x-00 && apt-mark hold kubeadm
+
+1. 다운로드 하려는 버전 받아졌는지 확인
+
+kubeadm version
+
+1. 업그레이드 계획 확인
+
+kubeadm upgrade plan
+
+1. 업그레이드
+
+sudo kubeadm upgrade apply v1.24.x
+
+1. kubelet과 kubectl업그레이드
+
+apt-mark unhold kubelet kubectl && apt-get update && apt-get install -y kubelet=1.24.x-00 kubectl=1.24.x-00 && apt-mark hold kubelet kubectl
+
+1. 재시작 systemctl kubelet
+- 워커노드 업그레이드-
+1. kubeadm 업그레이드
+
+apt-mark unhold kubeadm && apt-get update && apt-get install -y kubeadm=1.20.0-00 && apt-mark hold kubeadm
+
+1. kubelet 업그레이드
+
+apt-mark unhold kubelet kubectl && apt-get update && apt-get install -y kubelet=1.20.0-00 kubectl=1.20.0-00 && apt-mark hold kubelet kubectl
+
+1. kubelet 재시작
+2. 업데이트한 워커 노드 uncordon
