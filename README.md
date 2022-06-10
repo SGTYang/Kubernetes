@@ -1,3 +1,5 @@
+# Kubernetes Study
+
 # ETCD
 
 ---
@@ -1503,3 +1505,95 @@ apt-mark unhold kubelet kubectl && apt-get update && apt-get install -y kubelet=
 
 1. kubelet 재시작
 2. 업데이트한 워커 노드 uncordon
+
+# Backup and Restore Methods
+
+---
+
+The ETCD Cluster is where all cluster related information is stored, and if your applications are configured with persistent storage, then that is another candidate for backups. With respect to resources that we created in the cluster, we use the imperative way of creating an object by executing a command. At times, we used the declarative approach by first creating a definition file and then running the kubectl apply command on that file. 
+
+A good practice is to store these on source code repositories. That way it can be maintained by a team. The source code repository should be configured with the right backup solutions. With that even when you lose your entire cluster, you can redeploy your application on the cluster by simply applying these configuration files on them. While the declarative approach is the preferred approach, it is not necessary that all of your team members stick to those standards. What if someone created an object the imperative way without documenting that information anywhere? 
+
+So a better approach to backing up resource configuration is to query the kube API server. Query the kube API server using the kubectl or by accessing the API server directly and save all resource configurations for all objects created on the cluster as a copy. 
+
+For example, one of the commands that can be used in backup script is to get all pods, deployments and services in all namespace using the kubectl utilities.
+
+```bash
+kubectl get all --all-namespaces -o yaml > all-deploy-services.yaml
+```
+
+There are tools like Ark now called Velero by HeptIO. It can help in taking backups of your K8S cluster using the K8S API.
+
+## Backup-ETCD
+
+The ETCD cluster stores information about the state of our cluster, so information about the cluster itself, the nodes and every other resources created within the cluster are stored here. So instead of backing up resources as before, you may choose to back up the ETCD server itself.
+
+As we have seen, the ETCD cluster is hosted on the master nodes while configuring ETCD with specified location where all the data would be stored. The data directory that is the directory that can be configured to be backed up by your backup tool.
+
+```yaml
+etcd.service
+
+ExecStart=/usr/local/bin/etcd \\
+...
+	--data-dir=/var/lib/etcd
+```
+
+ETCD also comes with a built in **snapshot solution**, you can take a snapshot of the ETCD database by using the ETCD control utilities.
+
+```bash
+ETCDCTL_API=3 etcdctl \
+	snapshot save 저장경로.db
+```
+
+A snapshot file will be created by the name in the current directory.
+
+You can view the status of the backup using the command.
+
+```bash
+ETCDCTL_API=3 etcdctl \
+	snapshot status 저장경로.db
+```
+
+To restore the cluster from this backup, first stop the kube-apiserver service as the restore process will require you to restart the ETCD cluster and kube-apiserver depends on it.
+
+```bash
+service kube-apiserver stop
+```
+
+Then run the command with the path set to the path of the backup file
+
+```bash
+ETCDCTL_API=3 etcdctl \
+	snapshot restore 저장한.db경로 \
+	--data-dir 불러와서 저장할 경로(/var/lib/etcd-from-backup)
+```
+
+When ETCD restores from a backup, it initializes a new cluster configuration and configures the members of ETCD as new members and as a new cluster. This is to prevent a new member from accidentally joining an existing cluster. We then configure the ETCD the configuration file to use the new data directory. Then reload the service daemon and restart ETCD service
+
+```bash
+systemctl daemon-reload
+
+service etcd restart
+```
+
+Finally, start the kube-apiserver service
+
+```bash
+service kube-apiserver start
+```
+
+With all ETCD command, remember to specify the certificate files for authentication, specify the end point to the ETCD cluster, CA certificate, ETCD server certificate and key.
+
+```bash
+ETCDCTL_API=3 etcdctl \
+	snapshot save \
+	--endpoints=https://127.0.0.1:2379 \
+	--cacert=/etc/etcd/ca.crt \ 
+	--cert=/etc/etcd/etcd-server.crt \
+	--key=/etc/etcd/etcd-server.key \
+	snapshot.db
+```
+
+If you’re using a managed K8S environment, then at times you may not even have access to ETCD cluster. In that case, backup by acquiring the kube-apiserver is probably the better way.
+
+# Security Primitives
