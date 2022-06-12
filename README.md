@@ -1597,3 +1597,59 @@ ETCDCTL_API=3 etcdctl \
 If you’re using a managed K8S environment, then at times you may not even have access to ETCD cluster. In that case, backup by acquiring the kube-apiserver is probably the better way.
 
 # Security Primitives
+
+---
+
+The kube-apiserver is at the center of all operations. Controlling access to the API server itself.  
+
+Who can access the API server is defined by the Authentication mechanisms.
+
+- Files - Username and Passwords
+- Files - Username and Tokens
+- Certificates
+- External Authentication providers - LDAP
+- Service Accounts
+
+Once they gain access to the cluster, what can they do is defined by authorization mechanisms.
+
+- RBAC Authorization
+- ABAC Authorization
+- Node Authorization
+- Webhook Mode
+
+All communication with the cluster, between the various components such as the ETCD cluster, kube controller manager scheduler, api server, as well as those running on the worker nodes such as kubelet and kubeproxy is secured using TLS encryption.
+
+# Authentication
+
+---
+
+- Admins
+- Developers
+- Application End Users
+- Bots
+
+Security of end users who access the applications deployed on the cluster is managed by the applications themselves internally.
+
+K8S does not manage user accounts natively, it relies on an external source like a file with user details, certificates or third party like LDAP. However, in case of service accounts, K8S can manage them.
+
+All user access is managed by the API server. Whether you’re accessing the cluster through kubectl or API directl, all of these requests go through the kube-apiserver. The kube-apiserver authenticates the request before processing it.
+
+There are different authentication mechanisms that can be configured. You can have a list of usernames and passwords in a static password file, usernames and tokens in a token file, or you can authenticate using certificates and another option is to connect to third party authentication protocols.
+
+- Static Password File
+    - The file has three columns. Password, username and user ID and optionally fourth column is group ID
+    - You must specify the option on kube-apiserver.service (—basic-auth-file=user-details.csv)
+- Static Token File
+    - Similar to static password file but password
+    - Instead of password, you specify a token
+    - You must specify the option on kube-apiserver.service (—token-auth-file=user-details.csv)
+
+<aside>
+⚠️ This is not a recommended authentication mechanism
+Consider volume mount while providing the auth file in K8S setup
+Setup Role Based Authorization for the new users
+
+</aside>
+
+- Certificates
+- Identity Services
