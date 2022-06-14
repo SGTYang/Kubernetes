@@ -1466,7 +1466,7 @@ We need to unmark it by running the uncordon command.
 kubectl uncordon node-1
 ```
 
-- 컨트롤플레인 업그레이드-
+- 컨트롤플레인 업그레이드
 1. 목록에서 최신 버전 찾기
 
 apt update
@@ -1494,7 +1494,7 @@ sudo kubeadm upgrade apply v1.24.x
 apt-mark unhold kubelet kubectl && apt-get update && apt-get install -y kubelet=1.24.x-00 kubectl=1.24.x-00 && apt-mark hold kubelet kubectl
 
 1. 재시작 systemctl kubelet
-- 워커노드 업그레이드-
+- 워커노드 업그레이드
 1. kubeadm 업그레이드
 
 apt-mark unhold kubeadm && apt-get update && apt-get install -y kubeadm=1.20.0-00 && apt-mark hold kubeadm
@@ -1653,3 +1653,87 @@ Setup Role Based Authorization for the new users
 
 - Certificates
 - Identity Services
+
+# TLS
+
+---
+
+A certificate is used to guarantee trust between two parties during a transaction. For example, when a user tries to access a web server, TLS certificates ensure that the communication between the user and the server is encrypted.
+
+For example, without secured connectivity, if a user were to access his online banking application, the credentials he types in would be sent in plain text format. The hacker sniffing network traffic could easily retrieve the credentials and use it to hack into user’s bank account. So you must encrypt the data being transferred using encryption keys.
+
+The data is encrypted using a key, which is basically a set of random numbers and alphabets. You add the random number to your data and you encrypt it into a format that cannot be recognized. The data is then sent to the server. The hackers sniffing the network gets the data, but can’t do anything with it. However, the same is the case with the server receiving the data, it cannot decrypt the data without the key. So a copy of the key must also be sent to the server so that the server can decrypt and read the message. Since the key is also sent over the same network, the attacker can sniff that as well and decrypt the data with it. 
+
+This is known as symmetric encryption. It is a secure way of encryption, but since it uses the same key to encrypt and decrypt the data and since the key has to be exchanged between the sender and the receiver, there is a risk of a hacker gaining access to the key and decrypting that data. 
+
+That’s where asymmetric encryption comes in. Instead of using a single key to encrypt and decrypt data, asymmetric encryption uses a pair of keys, a private key and a public key. A key which is only with me is private key. A key that anyone can access is public key. The trick here is if you encrypt or lock that data with your key(public key), you can only open it with the associated key(private key). So your key(private key) must always be secure with you and not be shared with anyone else.
+
+The problem we had earlier with symmetric encryption was that the key used to encrypt data had to be sent to the server over the network along with the encrypted data. And so there is a risk of the hacker getting the key to decrypt the data.
+
+The server and client can safely continue communication with each other using symmetric encryption. To securely transfer the symmetric key from the client to the server, we use asymmetric encryption. So we generate(openssl) a public and private key pair on the server. When the user first accesses the Web server using https, it gets the public key from the server. Since the hacker is sniffing all traffic. Let us assume he too gets a copt of the public key. The user’s browser then encrypts the symmetric key using the public key provided by the server. The user then sends this to the server. The hacker also gets the copy. The server uses the private key to decrypt the message and retrieve the symmetric key from it. However, the hacker does not have the private key to decrypt and retrieve the symmetric key from the message received. The hacker only has the public key, which he can only lock or encrypt a message and dot decrypt the message.  The symmetric key is now safely available only to the user and the server that can now use the symmetric key to encrypt data and send to each other. The receiver can use the same symmetric key to decrypt data and retrieve information. The hacker is left with the encrypted messages and public key which he can’t decrypt any data.
+
+# TLS in K8S
+
+---
+
+Usually certificates with public keys are named ***.crt** or ***.pem** extension. So that’s **server.crt** or **server.pem** for server certificates or **client.crt** or **client.pem** for client certificates. And private keys are usually with extension ***.key** or ***-key.pem** in the filename. For example **server.key** or **server-key.pem.** Private keys have the word key in them, usually either as an extension or in the name of the certificate and one that doesn’t have the word key in them is usually a public key or certificate.
+
+## Server Certificates In K8S
+
+An administrator interacting with the K8S cluster through the kubectl utility or via API directly, must establish secured TLS connection. Communication between all the components within the K8S cluster also need to be secured. So the two primary requirements are to have all the **various services** within the cluster **to use server certificate**s and **all clients to use client certificates** to verify them.
+
+**The API server** exposes at https service that other components as well as external users use to manage the K8S cluster. 
+
+So it is a server and it requires certificates to secure all communication with its clients. 
+
+- apiserver.crt
+- apiserver.key
+
+<aside>
+⚠️ Anything with *.crt extension is the certificate and *.key extension is the private key.
+
+</aside>
+
+Another server in the cluster is the ETCD server. The ETCD server stores all the information about the cluster. So it requires a pair of certificate and key for itself.
+
+- etcdserver.crt
+- etcdserver.key
+
+The other server component in the cluster is in the worker node. There are the kubelet services. They also expose an https api endpoint that the kube-api server talks to, to interact with the worker nodes.
+
+- kubelet.crt
+- kubelet.key
+
+## Client Certificates In K8S
+
+The client who access the kube-api server is us. The administrators through kubectl or restAPI. The admin user requires a certificate and key pair to authenticate to the kube-api server. 
+
+- admin.crt
+- admin.key
+
+The scheduler talks to the kube-api server to look for pods that require scheduling and then get the api server to schedule the pods on the right worker nodes. The scheduler is a client that accesses the API server. As far as the kube-api server is concerned, the scheduler is just another client. So the scheduler needs to validate its identity using a client TLS certificate. So it needs own pair of certificate and keys.
+
+- scheduler.crt
+- scheduler.key
+
+The kube-controller-manager is another client that accesses the kube-api server. So it also requires a certificate for authentication to the kube-api server.
+
+- controller-manager.crt
+- controller-manager.key
+
+The last client component is kube-proxy. The kube-proxy requires a client certificate to authenticate to the kube-api server 
+
+- kube-proxy.crt
+- kube-proxy.key
+
+The servers communicate among them as well. For example, kube-api server communicates with the ETCD server. In fact, of all the components, the kube-api server is the only server that talks to the ETCD server. So as far as the ETCD server is concerned, the kube-api server is a client. So it needs to authenticate. The kube-api server can use the same keys that it used earlier for serving its own api service, apiserver.crt and apiserver.key files. Or you can generate a new pair of certificates specifically for the kube-api server to authenticate to the ETCD server. The kube-api server also talks to the kubelet server. That’s how it monitors the worker nodes. For this, it can use the original certificates or generate new ones specifically for this purpose.
+
+- Client Certificates → mostly used by client to connect to the server
+- Server side certificates → used by kube-api server, ETCD server and kubelet to authenticate their clients
+
+We need a certificate authority to sign all of these certificates. K8S requires you to have at least one certificate authority for your cluster. 
+
+CA has its own pair of certificate and key
+
+- ca.crt
+- ca.key
